@@ -10,6 +10,12 @@ import Link from "next/link";
 import { toast } from "sonner";
 import FormField from "@/components/FormField";
 import { useRouter } from "next/navigation";
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+} from "firebase/auth";
+import { auth } from "@/firebase/client";
+import { signIn, signUp } from "@/lib/actions/auth.action";
 
 const authFormSchema = (type: FormType) => {
   return z.object({
@@ -33,13 +39,56 @@ const AuthForm = ({ type }: { type: FormType }) => {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
       console.log(values);
       if (type === "sign-up") {
+        // get the user details from the passed in values object
+        const { name, email, password } = values;
+        // create new user account session
+        const userCredentials = await createUserWithEmailAndPassword(
+          auth,
+          email,
+          password,
+        );
+        // sign the user up
+        const result = await signUp({
+          uid: userCredentials.user.uid,
+          name: name!,
+          email: email!,
+          password: password!,
+        });
+
+        // evaluate result of signup
+        if (!result?.success) {
+          toast.error(result?.message);
+          return;
+        }
+
         toast.success("Account created successfully. Please sign in.");
         router.push("/sign-in");
       } else {
+        // get form values
+        const { email, password } = values;
+
+        //sign in
+        const userCredential = await signInWithEmailAndPassword(
+          auth,
+          email,
+          password,
+        );
+
+        // create short-lived token
+        const idToken = await userCredential.user.getIdToken();
+
+        if (!idToken) {
+          toast.error("Sign in failed");
+          return;
+        }
+
+        // sign in the user
+        await signIn({ email, idToken });
+
         toast.success("Sign in successfully.");
         router.push("/");
       }
@@ -49,7 +98,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
     }
   }
 
-  const signIn = type === "sign-in";
+  const isSignIn = type === "sign-in";
 
   return (
     <div className="card-border lg:min-w-[566px]">
@@ -67,7 +116,7 @@ const AuthForm = ({ type }: { type: FormType }) => {
             className="w-full space-y-6 mt-4 form"
           >
             {/* Name */}
-            {!signIn && (
+            {!isSignIn && (
               <FormField
                 control={form.control}
                 name={"name"}
@@ -95,18 +144,18 @@ const AuthForm = ({ type }: { type: FormType }) => {
             />
 
             <Button className={"btn"} type="submit">
-              {signIn ? "Sign In" : "Create an Account"}
+              {isSignIn ? "Sign In" : "Create an Account"}
             </Button>
           </form>
         </Form>
 
         <p className={"text-center"}>
-          {signIn ? "No account yet?" : "Have and account already?"}
+          {isSignIn ? "No account yet?" : "Have and account already?"}
           <Link
-            href={!signIn ? "/sign-in" : "/sign-up"}
+            href={!isSignIn ? "/sign-in" : "/sign-up"}
             className={"font-bold text-user-primary ml-1"}
           >
-            {!signIn ? "Sign In" : "Sign Up"}
+            {!isSignIn ? "Sign In" : "Sign Up"}
           </Link>
         </p>
       </div>
