@@ -41,7 +41,6 @@ export async function signUp(params: SignUpParams) {
     };
   }
 }
-
 export async function signIn(params: SignInParams) {
   const { email, idToken } = params;
 
@@ -66,7 +65,6 @@ export async function signIn(params: SignInParams) {
     };
   }
 }
-
 export async function setSessionCookie(idToken: string) {
   const cookieStore = await cookies();
   const sessionCookie = await auth.createSessionCookie(idToken, {
@@ -80,4 +78,38 @@ export async function setSessionCookie(idToken: string) {
     path: "/",
     sameSite: "lax",
   });
+}
+export async function getCurrentUser(): Promise<User | null> {
+  const cookieStore = await cookies();
+  const sessionCookie = cookieStore.get("session")?.value;
+
+  if (!sessionCookie) return null;
+
+  try {
+    // decode session to check if we have a valid user
+    const decodedClaims = await auth.verifySessionCookie(sessionCookie, true);
+    // get user from local db
+    const userRecord = await db
+      .collection("users")
+      .doc(decodedClaims.uid)
+      .get();
+
+    // if we have no user return
+    if (!userRecord.exists) return null;
+
+    // return user
+    return {
+      ...userRecord.data(),
+      id: userRecord.id,
+    } as User;
+  } catch (e) {
+    console.log(e);
+    return null;
+  }
+}
+export async function isAuthenticated() {
+  const user = await getCurrentUser();
+
+  // the double exclamation will return whether the object (user) exits or not
+  return !!user;
 }
