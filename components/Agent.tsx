@@ -5,6 +5,7 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { vapi } from "@/lib/vapi.sdk";
+import { interviewer } from "@/constants";
 
 enum CallStatus {
   INACTIVE = "INACTIVE",
@@ -18,7 +19,13 @@ interface SavedMessage {
   content: string;
 }
 
-const Agent = ({ userName, userId, type }: AgentProps) => {
+const Agent = ({
+  userName,
+  userId,
+  type,
+  interviewId,
+  questions,
+}: AgentProps) => {
   const router = useRouter();
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [callStatus, setCallStatus] = useState<CallStatus>(CallStatus.INACTIVE);
@@ -61,21 +68,66 @@ const Agent = ({ userName, userId, type }: AgentProps) => {
     };
   }, []);
 
+  const handleGenerateFeedback = async (messages: SavedMessage[]) => {
+    console.log("Generate feedback here");
+
+    //TODO: generate feedback
+    const { success, id } = {
+      success: true,
+      id: "feedback-id",
+    };
+
+    if (success && id) {
+      router.push(`/interview/${interviewId}/feedback`);
+    } else {
+      console.log("Error saving feedback");
+      router.push("/");
+    }
+  };
+
   useEffect(() => {
-    // we can redirect the user to the home
-    // page to view their interview (if call is finished)
-    if (callStatus === CallStatus.FINISHED) router.push("/");
+    if (callStatus === CallStatus.FINISHED) {
+      if (type === "generate") {
+        router.push("/");
+      } else {
+        handleGenerateFeedback(messages).then(() => {
+          console.log("handled generating feedback");
+        });
+      }
+    }
   }, [messages, callStatus, type, userId]);
 
   const handleCall = async () => {
     setCallStatus(CallStatus.CONNECTING);
-    // start new call with vapi
-    await vapi.start(process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!, {
-      variableValues: {
-        username: userName,
-        userid: userId,
-      },
-    });
+
+    // we determine whether we are generating the interview questions or
+    // whether we are taking the interview. this determines which AI voice
+    // modal get used.
+    if (type === "generate") {
+      // start call with VAPI to generate the interview questions
+      await vapi.start(process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!, {
+        variableValues: {
+          username: userName,
+          userid: userId,
+        },
+      });
+    } else {
+      // gather the questions generated in the previous step
+      let formattedQuestions = "";
+      if (questions) {
+        formattedQuestions = questions
+          .map((question) => `- ${question}`)
+          .join("\n");
+      }
+
+      // start call with VAPI to take the interview with the questions
+      // that were generated in the previous step
+      await vapi.start(interviewer, {
+        variableValues: {
+          questions: formattedQuestions,
+        },
+      });
+    }
   };
   const handleDisconnect = async () => {
     setCallStatus(CallStatus.FINISHED);
