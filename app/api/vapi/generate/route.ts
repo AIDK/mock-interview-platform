@@ -38,7 +38,7 @@ export async function POST(request: Request) {
       userId: userid,
       finalized: true,
       coverImage: getRandomInterviewCover(),
-      createAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
     };
 
     // save the interview
