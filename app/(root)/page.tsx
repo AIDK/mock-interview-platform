@@ -13,12 +13,12 @@ const Page = async () => {
 
   // we request both (like Task.WhenAll in C#)
   const [userInterviews, latestInterviews] = await Promise.all([
-    await getInterviewsByUserId(user?.id!),
-    await getLatestInterviews({ userId: user?.id! }),
+    user?.id ? await getInterviewsByUserId(user.id) : [],
+    user?.id ? await getLatestInterviews({ userId: user.id }) : [],
   ]);
 
-  const hasPastInterview = userInterviews?.length > 0;
-  const hasUpcomingInterviews = latestInterviews?.length > 0;
+  const hasPastInterview = Boolean(userInterviews?.length);
+  const hasUpcomingInterviews = Boolean(latestInterviews?.length);
 
   return (
     <>
