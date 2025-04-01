@@ -7,14 +7,17 @@ import { redirect } from "next/navigation";
 
 const Page = async ({ params }: RouteParams) => {
   const { id } = await params;
-  const interview = await getInterviewById(id);
 
-  if (!interview) redirect("/");
-  const user = await getCurrentUser();
+  const [interview, user] = await Promise.all([
+    await getInterviewById(id),
+    await getCurrentUser(),
+  ]);
+
+  if (!interview || !user) redirect("/");
 
   const feedback = await getFeedbackByInterviewId({
     interviewId: id,
-    userId: user?.id!,
+    userId: user.id,
   });
 
   console.log(feedback);
